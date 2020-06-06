@@ -16,7 +16,7 @@
     </head>
 
     <body>
-        <div class="position-ref full-height">
+        <div class="position-ref">
             <div class="content">
                 <div class="title m-4">
                     Pineapples Map Gen
@@ -25,7 +25,7 @@
                 <div id="app"></div>
 
                 <div class="links mt-5">
-                    <a href="https://github.com/Andy-franklin/pineapples-map-gen">GitHub</a>
+                    <a href="https://github.com/Andy-franklin/pineapples-map-gen">View On GitHub</a>
                 </div>
             </div>
         </div>
