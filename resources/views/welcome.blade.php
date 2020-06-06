@@ -16,16 +16,16 @@
     </head>
 
     <body>
-        <div class="flex-center position-ref full-height">
+        <div class="position-ref full-height">
             <div class="content">
-                <div class="title m-b-md">
+                <div class="title m-4">
                     Pineapples Map Gen
                 </div>
 
                 <div id="app"></div>
 
-                <div class="links">
-                    <a href="https://github.com/Andy-franklin">GitHub</a>
+                <div class="links mt-5">
+                    <a href="https://github.com/Andy-franklin/pineapples-map-gen">GitHub</a>
                 </div>
             </div>
         </div>

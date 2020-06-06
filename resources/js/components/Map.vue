@@ -1,7 +1,8 @@
 <template>
     <div>
         <div class="lds-facebook" v-if="loading"><div></div><div></div><div></div></div>
-        <canvas id="map" width="512" height="512" class="m-b-md" v-else></canvas>
+        <div v-if="loading"><p>{{ loadingText }}</p></div>
+        <canvas id="map" :width="canvasWidth" :height="canvasWidth" class="m-b-md" v-show="!loading" style="width: 500px; height: 500px"></canvas>
     </div>
 </template>
 
@@ -12,29 +13,31 @@
         name: "Map",
         data() {
             return {
+                loadingText: 'Seeding',
                 loading: true,
                 map: [],
+                imageMap: [],
                 topLeft: [],
                 bottomLeft: [],
                 topRight: [],
                 bottomRight: [],
                 center: [],
-                dimension: 512,
+                // dimension: 1024 * 5,
+                dimension: 1024,
+                canvasWidth: 1024,
                 unitSize: 1,
-                roughness: 5,
+                roughness: 10,
             }
         },
         mounted() {
-            this.map = [];
-
-            for (let x = 0; x < this.dimension + 1; x ++) { //width
-                this.map[x] = [];
-                for (let y = 0; y < this.dimension + 1; y ++) { //height
-                    this.map[x][y] = 0;
-                }
-            }
-
             this.$worker.run((data) => {
+                for (let x = 0; x < data.dimension + 1; x ++) { //width
+                    data.map[x] = [];
+                    for (let y = 0; y < data.dimension + 1; y ++) { //height
+                        data.map[x][y] = 0;
+                    }
+                }
+
                 function seed() {
                     data.map[0][0] = Math.random();
                     data.topLeft = data.map[0][0];
@@ -61,7 +64,7 @@
                 }
                 function midpointDisplacement(dimension) {
                     //Half the original dimension
-                    let newDimension = dimension / 2;
+                    let newDimension = 2 * Math.round(dimension / 2) - 2;
 
                     //If we are now smaller than the unitsize then we are done
                     if (newDimension <= data.unitSize) return;
@@ -134,14 +137,104 @@
             }, [this._data])
                 .then(result => {
                     this.map = result;
-                    this.loading = false;
+                    this.drawMap();
                 })
                 .catch(e => {
                     console.error(e)
                 });
         },
         methods: {
+            drawMap: function() {
+                this.loadingText = 'Colouring Map';
+                this.$worker.run((data) => {
+                    function fade(startColor, endColor, steps, step){
+                        let scale = step / steps,
+                            r = startColor.r + scale * (endColor.r - startColor.r),
+                            b = startColor.b + scale * (endColor.b - startColor.b),
+                            g = startColor.g + scale * (endColor.g - startColor.g);
 
+                        return {
+                            r: r,
+                            g: g,
+                            b: b
+                        }
+                    }
+
+                    let imageMap = [];
+
+                    //colour map
+                    let waterStart={r:10,g:20,b:40},
+                        waterEnd={r:39,g:50,b:63},
+                        grassStart={r:22,g:38,b:3},
+                        grassEnd={r:67,g:100,b:18},
+                        mtnEnd={r:60,g:56,b:31},
+                        mtnStart={r:67,g:80,b:18},
+                        rocamtStart={r:90,g:90,b:90},
+                        rocamtEnd={r:130,g:130,b:130},
+                        snowStart={r:255,g:255,b:255},
+                        snowEnd={r:200,g:200,b:200};
+
+                    for (let x = 0; x <= data.dimension - 1; x += data.unitSize) {
+                        for (let y = 0; y <= data.dimension - 1; y += data.unitSize) {
+                            let colour = {r: 0, g: 0, b: 0};
+                            let  dataPoint = data.map[x][y];
+                            
+                            if (dataPoint >= 0 && dataPoint <= 0.3) {
+                                colour = fade(waterStart, waterEnd, 30, parseInt(dataPoint * 100, 10));
+                            } else if (dataPoint > 0.3 && dataPoint <= 0.7) {
+                                colour = fade(grassStart, grassEnd, 45, parseInt(dataPoint * 100, 10) - 30);
+                            } else if (dataPoint > 0.7 && dataPoint <= 0.95) {
+                                colour = fade(mtnStart, mtnEnd, 15, parseInt(dataPoint * 100, 10) - 70);
+                            } else if (dataPoint > 0.95 && dataPoint <= 1) {
+                                colour = fade(rocamtStart, rocamtEnd, 5, parseInt(dataPoint * 100, 10) - 95);
+                            }
+
+                            for (let w = 0; w <= data.unitSize; w++) {
+                                for (let h = 0; h <= data.unitSize; h++) {
+                                    let pData = ( ~~(x + w) + ( ~~(y + h) * data.canvasWidth)) * 4;
+
+                                    imageMap[pData] = colour.r;
+                                    imageMap[pData + 1] = colour.g;
+                                    imageMap[pData + 2] = colour.b;
+                                    imageMap[pData + 3] = 255;
+                                }
+                            }
+                        }
+                    }
+
+                    return imageMap;
+                }, [this._data])
+                    .then(result => {
+                        this.imageMap = result;
+                        this.renderMap();
+                    })
+                    .catch(e => {
+                        console.error(e)
+                    });
+            },
+            renderMap: function() {
+                this.loadingText = "Rendering map";
+                let canvas = document.getElementById('map');
+                let ctx = canvas.getContext("2d");
+
+
+                let image = ctx.createImageData(canvas.height, canvas.width);
+
+                this.$worker.run((image, imageMap) => {
+                    for (let i = 0; i < image.data.length; i++) {
+                        image.data[i] = imageMap[i];
+                    }
+
+                    return image;
+                }, [image, this.imageMap])
+                    .then(result => {
+                        ctx.putImageData(result, 0, 0);
+                        this.loading = false;
+                    })
+                    .catch(e => {
+                        console.error(e)
+                    });
+            }
         }
     }
 </script>

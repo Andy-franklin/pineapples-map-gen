@@ -1948,40 +1948,43 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
 //Using the Diamond Square Algorithm
 //https://en.wikipedia.org/wiki/Diamond-square_algorithm
 /* harmony default export */ __webpack_exports__["default"] = ({
   name: "Map",
   data: function data() {
     return {
+      loadingText: 'Seeding',
       loading: true,
       map: [],
+      imageMap: [],
       topLeft: [],
       bottomLeft: [],
       topRight: [],
       bottomRight: [],
       center: [],
-      dimension: 512,
+      // dimension: 1024 * 5,
+      dimension: 1024,
+      canvasWidth: 1024,
       unitSize: 1,
-      roughness: 5
+      roughness: 10
     };
   },
   mounted: function mounted() {
     var _this = this;
 
-    this.map = [];
-
-    for (var x = 0; x < this.dimension + 1; x++) {
-      //width
-      this.map[x] = [];
-
-      for (var y = 0; y < this.dimension + 1; y++) {
-        //height
-        this.map[x][y] = 0;
-      }
-    }
-
     this.$worker.run(function (data) {
+      for (var x = 0; x < data.dimension + 1; x++) {
+        //width
+        data.map[x] = [];
+
+        for (var y = 0; y < data.dimension + 1; y++) {
+          //height
+          data.map[x][y] = 0;
+        }
+      }
+
       function seed() {
         data.map[0][0] = Math.random();
         data.topLeft = data.map[0][0]; // bottom left
@@ -2004,7 +2007,7 @@ __webpack_require__.r(__webpack_exports__);
 
       function midpointDisplacement(dimension) {
         //Half the original dimension
-        var newDimension = dimension / 2; //If we are now smaller than the unitsize then we are done
+        var newDimension = 2 * Math.round(dimension / 2) - 2; //If we are now smaller than the unitsize then we are done
 
         if (newDimension <= data.unitSize) return;
 
@@ -2073,12 +2076,144 @@ __webpack_require__.r(__webpack_exports__);
       return data.map;
     }, [this._data]).then(function (result) {
       _this.map = result;
-      _this.loading = false;
+
+      _this.drawMap();
     })["catch"](function (e) {
       console.error(e);
     });
   },
-  methods: {}
+  methods: {
+    drawMap: function drawMap() {
+      var _this2 = this;
+
+      this.loadingText = 'Colouring Map';
+      this.$worker.run(function (data) {
+        function fade(startColor, endColor, steps, step) {
+          var scale = step / steps,
+              r = startColor.r + scale * (endColor.r - startColor.r),
+              b = startColor.b + scale * (endColor.b - startColor.b),
+              g = startColor.g + scale * (endColor.g - startColor.g);
+          return {
+            r: r,
+            g: g,
+            b: b
+          };
+        }
+
+        var imageMap = []; //colour map
+
+        var waterStart = {
+          r: 10,
+          g: 20,
+          b: 40
+        },
+            waterEnd = {
+          r: 39,
+          g: 50,
+          b: 63
+        },
+            grassStart = {
+          r: 22,
+          g: 38,
+          b: 3
+        },
+            grassEnd = {
+          r: 67,
+          g: 100,
+          b: 18
+        },
+            mtnEnd = {
+          r: 60,
+          g: 56,
+          b: 31
+        },
+            mtnStart = {
+          r: 67,
+          g: 80,
+          b: 18
+        },
+            rocamtStart = {
+          r: 90,
+          g: 90,
+          b: 90
+        },
+            rocamtEnd = {
+          r: 130,
+          g: 130,
+          b: 130
+        },
+            snowStart = {
+          r: 255,
+          g: 255,
+          b: 255
+        },
+            snowEnd = {
+          r: 200,
+          g: 200,
+          b: 200
+        };
+
+        for (var x = 0; x <= data.dimension - 1; x += data.unitSize) {
+          for (var y = 0; y <= data.dimension - 1; y += data.unitSize) {
+            var colour = {
+              r: 0,
+              g: 0,
+              b: 0
+            };
+            var dataPoint = data.map[x][y];
+
+            if (dataPoint >= 0 && dataPoint <= 0.3) {
+              colour = fade(waterStart, waterEnd, 30, parseInt(dataPoint * 100, 10));
+            } else if (dataPoint > 0.3 && dataPoint <= 0.7) {
+              colour = fade(grassStart, grassEnd, 45, parseInt(dataPoint * 100, 10) - 30);
+            } else if (dataPoint > 0.7 && dataPoint <= 0.95) {
+              colour = fade(mtnStart, mtnEnd, 15, parseInt(dataPoint * 100, 10) - 70);
+            } else if (dataPoint > 0.95 && dataPoint <= 1) {
+              colour = fade(rocamtStart, rocamtEnd, 5, parseInt(dataPoint * 100, 10) - 95);
+            }
+
+            for (var w = 0; w <= data.unitSize; w++) {
+              for (var h = 0; h <= data.unitSize; h++) {
+                var pData = (~~(x + w) + ~~(y + h) * data.canvasWidth) * 4;
+                imageMap[pData] = colour.r;
+                imageMap[pData + 1] = colour.g;
+                imageMap[pData + 2] = colour.b;
+                imageMap[pData + 3] = 255;
+              }
+            }
+          }
+        }
+
+        return imageMap;
+      }, [this._data]).then(function (result) {
+        _this2.imageMap = result;
+
+        _this2.renderMap();
+      })["catch"](function (e) {
+        console.error(e);
+      });
+    },
+    renderMap: function renderMap() {
+      var _this3 = this;
+
+      this.loadingText = "Rendering map";
+      var canvas = document.getElementById('map');
+      var ctx = canvas.getContext("2d");
+      var image = ctx.createImageData(canvas.height, canvas.width);
+      this.$worker.run(function (image, imageMap) {
+        for (var i = 0; i < image.data.length; i++) {
+          image.data[i] = imageMap[i];
+        }
+
+        return image;
+      }, [image, this.imageMap]).then(function (result) {
+        ctx.putImageData(result, 0, 0);
+        _this3.loading = false;
+      })["catch"](function (e) {
+        console.error(e);
+      });
+    }
+  }
 });
 
 /***/ }),
@@ -38339,10 +38474,25 @@ var render = function() {
           _c("div"),
           _c("div")
         ])
-      : _c("canvas", {
-          staticClass: "m-b-md",
-          attrs: { id: "map", width: "512", height: "512" }
-        })
+      : _vm._e(),
+    _vm._v(" "),
+    _vm.loading
+      ? _c("div", [_c("p", [_vm._v(_vm._s(_vm.loadingText))])])
+      : _vm._e(),
+    _vm._v(" "),
+    _c("canvas", {
+      directives: [
+        {
+          name: "show",
+          rawName: "v-show",
+          value: !_vm.loading,
+          expression: "!loading"
+        }
+      ],
+      staticClass: "m-b-md",
+      staticStyle: { width: "500px", height: "500px" },
+      attrs: { id: "map", width: _vm.canvasWidth, height: _vm.canvasWidth }
+    })
   ])
 }
 var staticRenderFns = []
