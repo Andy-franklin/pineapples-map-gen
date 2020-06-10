@@ -1,15 +1,43 @@
 <template>
     <div>
         <div v-if="!loading && !hasRun">
-            <b-button variant="outline-primary" @click="run()" class="mb-2">Run</b-button>
+            <b-button variant="outline-primary" class="mb-2" v-b-modal.run_modal>Run</b-button>
             <br/>Or<br/>
             <b-button variant="outline-secondary" class="mt-2" v-b-modal.import_modal>Import from file</b-button>
 
             <b-modal id="import_modal" title="Import from file" @ok="importFromFile">
-                <p>Your file must be a .pineapples-map file to import correctly.</p>
+                <p>Your file must be a .amby-map file to import correctly.</p>
                 <b-form-file v-model="importFile" ref="file-input" class="mb-2"></b-form-file>
             </b-modal>
         </div>
+
+        <b-modal id="run_modal" title="Settings" @ok="run">
+            <!--Landmarks-->
+            <b-form-group label="Landmarks:">
+                <b-form-checkbox-group id="landmarks-group" v-model="landmarks" name="landmarks">
+                    <b-form-checkbox value="cities">Cities</b-form-checkbox>
+                    <b-form-checkbox value="caves">Caves</b-form-checkbox>
+                    <b-form-checkbox value="towns">Towns</b-form-checkbox>
+                    <b-form-checkbox value="farms">Farms</b-form-checkbox>
+                    <b-form-checkbox value="ruins">Ruins</b-form-checkbox>
+                </b-form-checkbox-group>
+            </b-form-group>
+
+
+            <!--Temperature-->
+            <b-form-group :label="'Temperature: ' + temperature + String.fromCharCode(176) + 'C'">
+                <b-input-group prepend="-20" append="60">
+                    <b-form-input type="range" min="-20" max="60" v-model="temperature"></b-form-input>
+                </b-input-group>
+            </b-form-group>
+
+            <!--Roughness-->
+            <b-form-group :label="'Roughness: ' + roughness">
+                <b-input-group prepend="0" append="15">
+                    <b-form-input type="range" min="0" max="15" v-model="roughness"></b-form-input>
+                </b-input-group>
+            </b-form-group>
+        </b-modal>
 
         <div v-if="loading">
             <div class="lds-facebook"><div></div><div></div><div></div></div>
@@ -26,7 +54,7 @@
                 <a href="#">bottom</a>
             </p>
 
-            <b-button variant="outline-primary" @click="run()" class="mr-4">Run Again</b-button>
+            <b-button variant="outline-primary" v-b-modal.run_modal class="mr-4">Run Again</b-button>
             <b-button @click="exportToFile">Export to file</b-button>
         </div>
     </div>
@@ -59,6 +87,9 @@
                 roughness: 8,
 
                 importFile: [],
+
+                landmarks: [],
+                temperature: 18,
             }
         },
         mounted() {
@@ -78,12 +109,13 @@
 
                 reader.readAsText(this.importFile);
                 reader.onload = () => {
-                    this.map = JSON.parse(atob(reader.result));
-                    this.$bvModal.hide('modal-prevent-closing');
-
-                    this.drawMap();
-
-                    // this.makeToast('Your file is invalid.', 'Error', 'danger')
+                    try {
+                        this.map = JSON.parse(atob(reader.result));
+                        this.$bvModal.hide('import_modal');
+                        this.drawMap();
+                    } catch (error) {
+                        this.makeToast('Your file is invalid.', 'Error', 'danger')
+                    }
                 };
             },
             download: function (filename, text) {
@@ -111,7 +143,7 @@
                 const s = today.getSeconds();
                 let name = y + "-" + m + d + h + mi + s;
 
-                this.download(name + '.pineapples-map', exportString)
+                this.download(name + '.amby-map', exportString)
             },
             run: function() {
                 this.loading = true;
@@ -219,8 +251,11 @@
                         return Math.max(Math.min(value, 1), 0);
                     }
                     function displace(number) {
-                        let max = number / (data.dimension + data.dimension) * data.roughness;
-                        let val = (Math.random() - 0.5) * max;
+                        let max = number / (data.dimension) * data.roughness;
+
+                        let modifier = 0.5;
+
+                        let val = (Math.random() - modifier) * max;
 
                         return val;
                     }
@@ -271,7 +306,20 @@
                         for (let y = 0; y <= data.dimension - 1; y += data.unitSize) {
                             let colour = {r: 0, g: 0, b: 0};
                             let  dataPoint = data.map[x][y];
-                            
+
+                            if (data.temperature < -5) {
+                                //Include sea ice
+                            }
+
+                            if (data.temperature > 40) {
+                                grassStart={r:67,g:100,b:18};
+                                grassEnd={r:255,g:228,b:181};
+
+                                snowStart = rocamtStart;
+                                snowEnd = rocamtEnd;
+                            }
+
+
                             if (dataPoint >= 0 && dataPoint <= 0.15) {
                                 colour = fade(waterStart, waterStart, 15, parseInt(dataPoint * 100, 10) - 5);
                             } else if (dataPoint >= 0.15 && dataPoint <= 0.3) {
