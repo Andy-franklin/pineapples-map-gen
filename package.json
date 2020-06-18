@@ -25,6 +25,7 @@
     },
     "dependencies": {
         "bootstrap-vue": "^2.15.0",
+        "simplex-noise": "^2.4.0",
         "vue-worker": "^1.2.1"
     }
 }
