@@ -66,9 +66,9 @@
 </template>
 
 <script>
-    //Using the Diamond Square Algorithm
-    //https://en.wikipedia.org/wiki/Diamond-square_algorithm
-    let SimplexNoise = require('simplex-noise');
+
+    let _simplexNoise = require('simplex-noise');
+    let _simplex = new _simplexNoise('123456');
     export default {
         name: "Map",
         data() {
@@ -155,9 +155,7 @@
                 this.loading = true;
                 this.hasRun = true;
 
-                this.$worker.run((data) => {
-                    let simplex = new SimplexNoise();
-
+                this.$worker.run((data, simplex) => {
                     function GetChunk(chunkX, chunkY) {
                         let chunk = [];
                         for (let x = 0; x < data.chunkSize; x++) {
@@ -178,7 +176,7 @@
                     data.map = GetChunk(0, 0);
 
                     return data.map;
-                }, [this._data])
+                }, [this._data,_simplex])
                     .then(result => {
                         this.map = result;
                         this.drawMap();
