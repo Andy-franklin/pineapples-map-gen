@@ -40,12 +40,17 @@
         </b-modal>
 
         <div v-if="loading">
-            <div class="lds-facebook"><div></div><div></div><div></div></div>
+            <div class="lds-facebook">
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
             <div><p>{{ loadingText }}</p></div>
         </div>
 
         <div v-show="!loading && hasRun">
-            <canvas id="map" :width="canvasWidth" :height="canvasWidth" class="m-b-md" style="width: 600px; height: 600px"></canvas>
+            <canvas id="map" :width="canvasWidth" :height="canvasWidth" class="m-b-md"
+                    style="width: 600px; height: 600px"></canvas>
             <br/>
             <p>Continue map from:
                 <a href="#">top</a> |
@@ -96,14 +101,14 @@
         mounted() {
         },
         methods: {
-            makeToast: function(content, title, variant = null) {
+            makeToast: function (content, title, variant = null) {
                 this.$bvToast.toast(content, {
                     title: title,
                     variant: variant,
                     solid: true
                 })
             },
-            importFromFile: function(bvModalEvt) {
+            importFromFile: function (bvModalEvt) {
                 bvModalEvt.preventDefault();
 
                 const reader = new FileReader();
@@ -131,7 +136,7 @@
 
                 document.body.removeChild(element);
             },
-            exportToFile: function() {
+            exportToFile: function () {
                 let exportString = btoa(JSON.stringify(this.map));
 
                 const today = new Date();
@@ -146,16 +151,16 @@
 
                 this.download(name + '.amby-map', exportString)
             },
-            run: function() {
+            run: function () {
                 this.loading = true;
                 this.hasRun = true;
 
                 this.$worker.run((data) => {
                     let simplex = new SimplexNoise();
-                    function GetChunk(chunkX,chunkY)
-                    {
+
+                    function GetChunk(chunkX, chunkY) {
                         let chunk = [];
-                        for(let x = 0; x < data.chunkSize; x++) {
+                        for (let x = 0; x < data.chunkSize; x++) {
                             chunk[x] = [];
                             for (let y = 0; y < data.chunkSize; y++) {
                                 chunk[x][y] = GetNoise(x + (chunkX * data.chunkSize), y + (chunkY * data.chunkSize));
@@ -164,13 +169,13 @@
                         return chunk;
                     }
 
-                    function GetNoise(x,y){
-                        let noise = simplex.noise2D(x,y);
+                    function GetNoise(x, y) {
+                        let noise = simplex.noise2D(x, y);
                         let normalised = noise * 0.5 + 0.5;
                         return normalised;
                     }
 
-                    data.map = GetChunk(0,0);
+                    data.map = GetChunk(0, 0);
 
                     return data.map;
                 }, [this._data])
@@ -182,11 +187,11 @@
                         console.error(e)
                     });
             },
-            drawMap: function() {
+            drawMap: function () {
                 this.loading = true;
                 this.loadingText = 'Colouring Map';
                 this.$worker.run((data) => {
-                    function fade(startColor, endColor, steps, step){
+                    function fade(startColor, endColor, steps, step) {
                         let scale = step / steps,
                             r = startColor.r + scale * (endColor.r - startColor.r),
                             b = startColor.b + scale * (endColor.b - startColor.b),
@@ -202,29 +207,29 @@
                     let imageMap = [];
 
                     //colour map
-                    let waterStart={r:10,g:20,b:40},
-                        waterEnd={r:39,g:50,b:63},
-                        grassStart={r:22,g:38,b:3},
-                        grassEnd={r:67,g:100,b:18},
-                        mtnEnd={r:60,g:56,b:31},
-                        mtnStart={r:67,g:80,b:18},
-                        rocamtStart={r:90,g:90,b:90},
-                        rocamtEnd={r:130,g:130,b:130},
-                        snowStart={r:255,g:255,b:255},
-                        snowEnd={r:200,g:200,b:200};
+                    let waterStart = {r: 10, g: 20, b: 40},
+                        waterEnd = {r: 39, g: 50, b: 63},
+                        grassStart = {r: 22, g: 38, b: 3},
+                        grassEnd = {r: 67, g: 100, b: 18},
+                        mtnEnd = {r: 60, g: 56, b: 31},
+                        mtnStart = {r: 67, g: 80, b: 18},
+                        rocamtStart = {r: 90, g: 90, b: 90},
+                        rocamtEnd = {r: 130, g: 130, b: 130},
+                        snowStart = {r: 255, g: 255, b: 255},
+                        snowEnd = {r: 200, g: 200, b: 200};
 
                     for (let x = 0; x <= data.dimension - 1; x += data.unitSize) {
                         for (let y = 0; y <= data.dimension - 1; y += data.unitSize) {
                             let colour = {r: 0, g: 0, b: 0};
-                            let  dataPoint = data.map[x][y];
+                            let dataPoint = data.map[x][y];
 
                             if (data.temperature < -5) {
                                 //Include sea ice
                             }
 
                             if (data.temperature > 40) {
-                                grassStart={r:67,g:100,b:18};
-                                grassEnd={r:255,g:228,b:181};
+                                grassStart = {r: 67, g: 100, b: 18};
+                                grassEnd = {r: 255, g: 228, b: 181};
 
                                 snowStart = rocamtStart;
                                 snowEnd = rocamtEnd;
@@ -247,7 +252,7 @@
 
                             for (let w = 0; w <= data.unitSize; w++) {
                                 for (let h = 0; h <= data.unitSize; h++) {
-                                    let pData = ( ~~(x + w) + ( ~~(y + h) * data.canvasWidth)) * 4;
+                                    let pData = (~~(x + w) + (~~(y + h) * data.canvasWidth)) * 4;
 
                                     imageMap[pData] = colour.r;
                                     imageMap[pData + 1] = colour.g;
@@ -268,7 +273,7 @@
                         console.error(e)
                     });
             },
-            renderMap: function() {
+            renderMap: function () {
                 this.loadingText = "Rendering map";
                 let canvas = document.getElementById('map');
                 let ctx = canvas.getContext("2d");
@@ -303,6 +308,7 @@
         width: 80px;
         height: 80px;
     }
+
     .lds-facebook div {
         display: inline-block;
         position: absolute;
@@ -311,18 +317,22 @@
         background: #1d68a7;
         animation: lds-facebook 1.2s cubic-bezier(0, 0.5, 0.5, 1) infinite;
     }
+
     .lds-facebook div:nth-child(1) {
         left: 8px;
         animation-delay: -0.24s;
     }
+
     .lds-facebook div:nth-child(2) {
         left: 32px;
         animation-delay: -0.12s;
     }
+
     .lds-facebook div:nth-child(3) {
         left: 56px;
         animation-delay: 0;
     }
+
     @keyframes lds-facebook {
         0% {
             top: 8px;
