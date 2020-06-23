@@ -66,9 +66,9 @@
 </template>
 
 <script>
+    import SimplexNoise from 'simplex-noise';
+    const simplex = new SimplexNoise();
 
-    let _simplexNoise = require('simplex-noise');
-    let _simplex = new _simplexNoise('123456');
     export default {
         name: "Map",
         data() {
@@ -156,27 +156,27 @@
                 this.hasRun = true;
 
                 this.$worker.run((data, simplex) => {
-                    function GetChunk(chunkX, chunkY) {
+                    function getChunk(chunkX, chunkY) {
                         let chunk = [];
                         for (let x = 0; x < data.chunkSize; x++) {
                             chunk[x] = [];
                             for (let y = 0; y < data.chunkSize; y++) {
-                                chunk[x][y] = GetNoise(x + (chunkX * data.chunkSize), y + (chunkY * data.chunkSize));
+                                chunk[x][y] = getNoise(x + (chunkX * data.chunkSize), y + (chunkY * data.chunkSize));
                             }
                         }
                         return chunk;
                     }
 
-                    function GetNoise(x, y) {
+                    function getNoise(x, y) {
                         let noise = simplex.noise2D(x, y);
                         let normalised = noise * 0.5 + 0.5;
                         return normalised;
                     }
 
-                    data.map = GetChunk(0, 0);
+                    data.map = getChunk(0, 0);
 
                     return data.map;
-                }, [this._data,_simplex])
+                }, [this._data, simplex])
                     .then(result => {
                         this.map = result;
                         this.drawMap();
