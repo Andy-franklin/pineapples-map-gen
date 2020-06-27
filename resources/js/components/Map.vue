@@ -33,10 +33,31 @@
 
             <!--Roughness-->
             <b-form-group :label="'Roughness: ' + roughness">
-                <b-input-group prepend="0" append="15">
-                    <b-form-input type="range" min="0" max="15" v-model="roughness"></b-form-input>
+                <b-input-group prepend="0" append="100">
+                    <b-form-input type="range" min="0" max="100" v-model="roughness"></b-form-input>
                 </b-input-group>
             </b-form-group>
+            <!--Octave Number-->
+            <b-form-group :label="'Number of octaves: ' + numberOfOctaves">
+                <b-input-group prepend="1" append="20">
+                    <b-form-input type="range" min="1" max="20" v-model="numberOfOctaves"></b-form-input>
+                </b-input-group>
+            </b-form-group>
+
+            <!--Scale-->
+            <b-form-group :label="'Scale: ' + scale">
+                <b-input-group prepend="1" append="1000">
+                    <b-form-input type="range" min="1" max="1000" v-model="scale"></b-form-input>
+                </b-input-group>
+            </b-form-group>
+
+            <!--Seed-->
+            <b-form-group :label="'Seed:'">
+                <b-input-group>
+                    <b-form-input type="text" v-model="seed" placeholder="seed"></b-form-input>
+                </b-input-group>
+            </b-form-group>
+
         </b-modal>
 
         <div v-if="loading">
@@ -69,6 +90,8 @@
     import SimplexNoise from 'simplex-noise';
     const simplex = new SimplexNoise();
 
+    let _simplexNoise = require('simplex-noise');
+    let simplex = new _simplexNoise('123456');
     export default {
         name: "Map",
         data() {
@@ -90,7 +113,10 @@
                 canvasWidth: 1024,
 
                 unitSize: 1,
-                roughness: 8,
+                roughness: 50,
+                numberOfOctaves: 8,
+                scale: 500,
+                seed: Math.random(),
 
                 importFile: [],
 
@@ -155,35 +181,41 @@
                 this.loading = true;
                 this.hasRun = true;
 
-                this.$worker.run((data, simplex) => {
-                    function getChunk(chunkX, chunkY) {
-                        let chunk = [];
-                        for (let x = 0; x < data.chunkSize; x++) {
-                            chunk[x] = [];
-                            for (let y = 0; y < data.chunkSize; y++) {
-                                chunk[x][y] = getNoise(x + (chunkX * data.chunkSize), y + (chunkY * data.chunkSize));
-                            }
-                        }
-                        return chunk;
+                this.map = this.getChunk(0, 0);
+                this.drawMap();
+
+            },
+            getChunk: function(chunkX, chunkY)
+            {
+                let chunk = [];
+                for (let x = 0; x < this._data.chunkSize; x++) {
+                    chunk[x] = [];
+                    for (let y = 0; y < this._data.chunkSize; y++) {
+                        chunk[x][y] = this.getNoiseWithOctaves(x + (chunkX * this._data.chunkSize),
+                            y + (chunkY * this._data.chunkSize),
+                            this._data.scale,
+                            this._data.numberOfOctaves);
                     }
-
-                    function getNoise(x, y) {
-                        let noise = simplex.noise2D(x, y);
-                        let normalised = noise * 0.5 + 0.5;
-                        return normalised;
-                    }
-
-                    data.map = getChunk(0, 0);
-
-                    return data.map;
-                }, [this._data, simplex])
-                    .then(result => {
-                        this.map = result;
-                        this.drawMap();
-                    })
-                    .catch(e => {
-                        console.error(e)
-                    });
+                }
+                return chunk;
+            },
+            getNoise: function(x, y){
+                let noise = simplex.noise2D(x, y);
+                return noise * 0.5 + 0.5;
+            },
+            getNoiseWithOctaves: function (x,y,startingOctave,numberOfOctaves){
+                let noise = 0;
+                let currentOctave = startingOctave;
+                let averageDivisor = 0;
+                for(let i = 1; i <= numberOfOctaves; i++){
+                    noise += this.generateOctave(x,y,currentOctave) * (1/(Math.pow(3 - this._data.roughness/50,i)));
+                    averageDivisor += (1/(Math.pow(3 - this._data.roughness/50,i)));
+                    currentOctave /= 2;
+                }
+                return noise/averageDivisor;
+            },
+            generateOctave: function(x,y,octave){
+                return this.getNoise(x/octave,y/octave);
             },
             drawMap: function () {
                 this.loading = true;
@@ -216,8 +248,8 @@
                         snowStart = {r: 255, g: 255, b: 255},
                         snowEnd = {r: 200, g: 200, b: 200};
 
-                    for (let x = 0; x <= data.dimension - 1; x += data.unitSize) {
-                        for (let y = 0; y <= data.dimension - 1; y += data.unitSize) {
+                    for (let x = 0; x <= data.chunkSize - 1; x += data.unitSize) {
+                        for (let y = 0; y <= data.chunkSize - 1; y += data.unitSize) {
                             let colour = {r: 0, g: 0, b: 0};
                             let dataPoint = data.map[x][y];
 
